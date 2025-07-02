@@ -149,7 +149,7 @@ func (asd *AlertsSensorData) doLoop(ctx context.Context) error {
 	asd.res["level"] = level
 	asd.res["flow"] = flow
 	if level >= asd.conf.alertLevel() && flow > 0 {
-		asd.res["fwerror"] = fmt.Errorf("level %0.2f flow: %0.2f", level, flow)
+		asd.res["fwerror"] = fmt.Sprintf("level %0.2f flow: %0.2f", level, flow)
 	} else {
 		asd.res["fwerror"] = ""
 	}

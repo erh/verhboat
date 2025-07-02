@@ -3,13 +3,10 @@ package verhboat
 import (
 	"context"
 	"fmt"
-	"sync"
-	"time"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	goutils "go.viam.com/utils"
 )
 
 var AlertsSensorModel = NamespaceFamily.WithModel("alerts")
@@ -76,11 +73,6 @@ func NewAlertsSensor(ctx context.Context, deps resource.Dependencies, name resou
 		return nil, err
 	}
 
-	d.cancelCtx, d.cancel = context.WithCancel(context.Background())
-
-	d.wg.Add(1)
-	go d.run(d.cancelCtx)
-
 	return d, nil
 }
 
@@ -93,37 +85,17 @@ type AlertsSensorData struct {
 
 	fwTank     sensor.Sensor
 	fwSpotZero sensor.Sensor
-
-	wg        sync.WaitGroup
-	cancelCtx context.Context
-	cancel    context.CancelFunc
-
-	mu  sync.Mutex
-	res map[string]interface{}
 }
 
-func (asd *AlertsSensorData) run(ctx context.Context) {
-	defer asd.wg.Done()
-	for ctx.Err() == nil {
-		start := time.Now()
-
-		err := asd.doLoop(ctx)
-		if err != nil {
-			asd.logger.Warnf("error doing loop: %v", err)
-		}
-		goutils.SelectContextOrWait(ctx, time.Minute-time.Since(start))
-	}
-}
-
-func (asd *AlertsSensorData) doLoop(ctx context.Context) error {
+func (asd *AlertsSensorData) getData(ctx context.Context) (map[string]interface{}, error) {
 	tank, err := asd.fwTank.Readings(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("can't read from tank %w", err)
+		return nil, fmt.Errorf("can't read from tank %w", err)
 	}
 
 	sz, err := asd.fwSpotZero.Readings(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("can't read from spot zero: %w", err)
+		return nil, fmt.Errorf("can't read from spot zero: %w", err)
 	}
 
 	asd.logger.Debugf("tank: %v", tank)
@@ -131,36 +103,30 @@ func (asd *AlertsSensorData) doLoop(ctx context.Context) error {
 
 	level, ok := tank["Level"].(float64)
 	if !ok {
-		return fmt.Errorf("tank data has no level %v", tank)
+		return nil, fmt.Errorf("tank data has no level %v", tank)
 	}
 
 	flow, ok := sz["Product Water Flow"].(float64)
 	if !ok {
-		return fmt.Errorf("spotzero data has no flow %v", sz)
+		return nil, fmt.Errorf("spotzero data has no flow %v", sz)
 	}
 
 	asd.logger.Infof("level %0.2f flow: %0.2f", level, flow)
 
-	asd.mu.Lock()
-	defer asd.mu.Unlock()
-	if asd.res == nil {
-		asd.res = map[string]interface{}{}
-	}
-	asd.res["level"] = level
-	asd.res["flow"] = flow
+	m := map[string]interface{}{}
+	m["level"] = level
+	m["flow"] = flow
 	if level >= asd.conf.alertLevel() && flow > 0 {
-		asd.res["fwerror"] = fmt.Sprintf("level %0.2f flow: %0.2f", level, flow)
+		m["fwerror"] = fmt.Sprintf("level %0.2f flow: %0.2f", level, flow)
 	} else {
-		asd.res["fwerror"] = ""
+		m["fwerror"] = ""
 	}
 
-	return nil
+	return m, nil
 }
 
 func (asd *AlertsSensorData) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	asd.mu.Lock()
-	defer asd.mu.Unlock()
-	return asd.res, nil
+	return asd.getData(ctx)
 }
 
 func (asd *AlertsSensorData) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -168,8 +134,6 @@ func (asd *AlertsSensorData) DoCommand(ctx context.Context, cmd map[string]inter
 }
 
 func (asd *AlertsSensorData) Close(ctx context.Context) error {
-	asd.cancel()
-	asd.wg.Wait()
 	return nil
 }
 

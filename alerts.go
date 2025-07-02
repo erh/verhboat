@@ -24,8 +24,9 @@ func init() {
 }
 
 type AlertsSensorConfig struct {
-	FreshwaterTank     string `json:"freshwater_tank"`
-	FreshwaterSpotZero string `json:"freshwater_spotzero"`
+	FreshwaterTank     string  `json:"freshwater_tank"`
+	FreshwaterSpotZero string  `json:"freshwater_spotzero"`
+	AlertLevel         float64 `json:"alert_level"`
 }
 
 func (c *AlertsSensorConfig) Validate(_ string) ([]string, []string, error) {
@@ -38,6 +39,13 @@ func (c *AlertsSensorConfig) Validate(_ string) ([]string, []string, error) {
 	}
 
 	return []string{c.FreshwaterTank, c.FreshwaterSpotZero}, nil, nil
+}
+
+func (c *AlertsSensorConfig) alertLevel() float64 {
+	if c.AlertLevel <= 0 {
+		return 99
+	}
+	return c.AlertLevel
 }
 
 func newAlertsSensor(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) (sensor.Sensor, error) {
@@ -55,6 +63,7 @@ func NewAlertsSensor(ctx context.Context, deps resource.Dependencies, name resou
 	d := &AlertsSensorData{
 		name:   name,
 		logger: logger,
+		conf:   conf,
 	}
 
 	d.fwTank, err = sensor.FromDependencies(deps, conf.FreshwaterTank)
@@ -79,6 +88,7 @@ type AlertsSensorData struct {
 	resource.AlwaysRebuild
 
 	name   resource.Name
+	conf   *AlertsSensorConfig
 	logger logging.Logger
 
 	fwTank     sensor.Sensor
@@ -138,7 +148,7 @@ func (asd *AlertsSensorData) doLoop(ctx context.Context) error {
 	}
 	asd.res["level"] = level
 	asd.res["flow"] = flow
-	if level >= 99 && flow > 0 {
+	if level >= asd.conf.alertLevel() && flow > 0 {
 		asd.res["fwerror"] = fmt.Errorf("level %0.2f flow: %0.2f", level, flow)
 	} else {
 		asd.res["fwerror"] = ""

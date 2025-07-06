@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"time"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
@@ -28,6 +27,7 @@ func realMain() error {
 	configFile := flag.String("config", "", "config file")
 	host := flag.String("host", "", "host to connect to")
 	debug := flag.Bool("debug", false, "debugging on")
+	action := flag.String("action", "", "fw or alerts")
 
 	flag.Parse()
 
@@ -35,18 +35,6 @@ func realMain() error {
 
 	if *configFile == "" {
 		return fmt.Errorf("need a config file")
-	}
-
-	cfg := &verhboat.AlertsSensorConfig{}
-
-	err := vmodutils.ReadJSONFromFile(*configFile, cfg)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = cfg.Validate("")
-	if err != nil {
-		return err
 	}
 
 	client, err := vmodutils.ConnectToHostFromCLIToken(ctx, *host, logger)
@@ -65,13 +53,48 @@ func realMain() error {
 		svcLogger.SetLevel(logging.DEBUG)
 	}
 
-	thing, err := verhboat.NewAlertsSensor(ctx, deps, sensor.Named("foo"), cfg, logger)
-	if err != nil {
-		return err
-	}
-	defer thing.Close(ctx)
+	var thing sensor.Sensor
 
-	time.Sleep(5 * time.Second)
+	if *action == "alerts" {
+		cfg := &verhboat.AlertsSensorConfig{}
+
+		err := vmodutils.ReadJSONFromFile(*configFile, cfg)
+		if err != nil {
+			return err
+		}
+
+		_, _, err = cfg.Validate("")
+		if err != nil {
+			return err
+		}
+
+		thing, err = verhboat.NewAlertsSensor(ctx, deps, sensor.Named("foo"), cfg, logger)
+		if err != nil {
+			return err
+		}
+		defer thing.Close(ctx)
+	} else if *action == "fw" {
+		cfg := &verhboat.FWFillSensorConfig{}
+
+		err := vmodutils.ReadJSONFromFile(*configFile, cfg)
+		if err != nil {
+			return err
+		}
+
+		_, _, err = cfg.Validate("")
+		if err != nil {
+			return err
+		}
+
+		thing, err = verhboat.NewFWFillSensor(ctx, deps, sensor.Named("foo"), cfg, logger)
+		if err != nil {
+			return err
+		}
+		defer thing.Close(ctx)
+
+	} else {
+		return fmt.Errorf("unknown action: [%s]", *action)
+	}
 
 	res, err := thing.Readings(ctx, nil)
 	if err != nil {

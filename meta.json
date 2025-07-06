@@ -9,6 +9,11 @@
       "api": "rdk:component:sensor",
       "model": "erh:verhboat:alerts",
       "markdown_link": "README.md#alerts"
+    },
+    {
+      "api": "rdk:component:sensor",
+      "model": "erh:verhboat:fw-fill",
+      "markdown_link": "README.md#fw-fill"
     }
   ],
   "applications": null,

@@ -8,6 +8,8 @@ import (
 )
 
 func main() {
-	module.ModularMain(resource.APIModel{sensor.API, verhboat.AlertsSensorModel})
-	module.ModularMain(resource.APIModel{sensor.API, verhboat.FWFillSensorModel})
+	module.ModularMain(
+		resource.APIModel{sensor.API, verhboat.AlertsSensorModel},
+		resource.APIModel{sensor.API, verhboat.FWFillSensorModel},
+	)
 }

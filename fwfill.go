@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/components/switch"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -90,7 +90,7 @@ func NewFWFillSensor(ctx context.Context, deps resource.Dependencies, name resou
 		return nil, err
 	}
 
-	d.fwValve, err = gripper.FromDependencies(deps, conf.FreshwaterValve)
+	d.fwValve, err = toggleswitch.FromDependencies(deps, conf.FreshwaterValve)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ type FWFillSensorData struct {
 
 	fwTank     sensor.Sensor
 	fwSpotZero sensor.Sensor
-	fwValve    gripper.Gripper
+	fwValve    toggleswitch.Switch
 
 	lastRandomClose time.Time
 }
@@ -147,7 +147,7 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 
 	if time.Since(asd.lastRandomClose) > (10 * time.Minute) {
 		m["random"] = true
-		_, err = asd.fwValve.Grab(ctx, nil)
+		err = asd.fwValve.SetPosition(ctx, 0, nil)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't do random valve close: %w", err)
 		}
@@ -173,9 +173,9 @@ func (asd *FWFillSensorData) Readings(ctx context.Context, extra map[string]inte
 	}
 
 	if d["action"] == "open" {
-		err = asd.fwValve.Open(ctx, nil)
+		err = asd.fwValve.SetPosition(ctx, 1, nil)
 	} else {
-		_, err = asd.fwValve.Grab(ctx, nil)
+		err = asd.fwValve.SetPosition(ctx, 0, nil)
 	}
 
 	return d, err

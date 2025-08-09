@@ -44,19 +44,19 @@ func (c *FWFillSensorConfig) Validate(_ string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("need freshwater_valve")
 	}
 
-	return []string{c.FreshwaterTank, c.FreshwaterSpotZero, c.FreshwaterValve}, nil, nil
+	return []string{c.FreshwaterTank, c.FreshwaterValve}, []string{c.FreshwaterSpotZero}, nil
 }
 
 func (c *FWFillSensorConfig) GetStartLevel() float64 {
 	if c.StartLevel <= 0 {
-		return 93
+		return 90
 	}
 	return c.StartLevel
 }
 
 func (c *FWFillSensorConfig) GetEndLevel() float64 {
 	if c.EndLevel <= 0 {
-		return 98
+		return 97
 	}
 	return c.EndLevel
 }
@@ -85,9 +85,11 @@ func NewFWFillSensor(ctx context.Context, deps resource.Dependencies, name resou
 		return nil, err
 	}
 
-	d.fwSpotZero, err = sensor.FromDependencies(deps, conf.FreshwaterSpotZero)
-	if err != nil {
-		return nil, err
+	if conf.FreshwaterSpotZero != "" {
+		d.fwSpotZero, err = sensor.FromDependencies(deps, conf.FreshwaterSpotZero)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	d.fwValve, err = toggleswitch.FromDependencies(deps, conf.FreshwaterValve)
@@ -118,9 +120,12 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 		return nil, fmt.Errorf("can't read from tank %w", err)
 	}
 
-	sz, err := asd.fwSpotZero.Readings(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("can't read from spot zero: %w", err)
+	sz := map[string]interface{}{}
+	if asd.fwSpotZero != nil {
+		sz, err = asd.fwSpotZero.Readings(ctx, nil)
+		if err != nil {
+			asd.logger.Warnf("can't read from spot zero: %w", err)
+		}
 	}
 
 	asd.logger.Debugf("tank: %v", tank)
@@ -159,7 +164,7 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 		m["action"] = "close"
 	} else if level < asd.conf.GetStartLevel() {
 		m["action"] = "open"
-	} else if level > asd.conf.GetEndLevel() {
+	} else if level >= asd.conf.GetEndLevel() {
 		m["action"] = "close"
 	}
 

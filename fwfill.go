@@ -49,14 +49,14 @@ func (c *FWFillSensorConfig) Validate(_ string) ([]string, []string, error) {
 
 func (c *FWFillSensorConfig) GetStartLevel() float64 {
 	if c.StartLevel <= 0 {
-		return 90
+		return 80
 	}
 	return c.StartLevel
 }
 
 func (c *FWFillSensorConfig) GetEndLevel() float64 {
 	if c.EndLevel <= 0 {
-		return 97
+		return 96
 	}
 	return c.EndLevel
 }

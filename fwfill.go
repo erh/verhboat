@@ -179,7 +179,7 @@ func (asd *FWFillSensorData) Readings(ctx context.Context, extra map[string]inte
 
 	if d["action"] == "open" {
 		err = asd.fwValve.SetPosition(ctx, 1, nil)
-	} else {
+	} else if d["action"] == "close" {
 		err = asd.fwValve.SetPosition(ctx, 0, nil)
 	}
 

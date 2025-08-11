@@ -26,6 +26,8 @@ type FWFillSensorConfig struct {
 	FreshwaterSpotZero string `json:"freshwater_spotzero"`
 	FreshwaterValve    string `json:"freshwater_valve"`
 
+	Seakeeper string `json:"seakeeper"`
+
 	StartLevel float64 `json:"start_level"`
 	EndLevel   float64 `json:"end_level"`
 }
@@ -35,15 +37,21 @@ func (c *FWFillSensorConfig) Validate(_ string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("need freshwater_tank")
 	}
 
-	if c.FreshwaterSpotZero == "" {
-		return nil, nil, fmt.Errorf("need freshwater_spotzero")
-	}
-
 	if c.FreshwaterValve == "" {
 		return nil, nil, fmt.Errorf("need freshwater_valve")
 	}
 
-	return []string{c.FreshwaterTank, c.FreshwaterValve}, []string{c.FreshwaterSpotZero}, nil
+	optional := []string{}
+
+	if c.FreshwaterSpotZero != "" {
+		optional = append(optional, c.FreshwaterSpotZero)
+	}
+
+	if c.Seakeeper != "" {
+		optional = append(optional, c.Seakeeper)
+	}
+
+	return []string{c.FreshwaterTank, c.FreshwaterValve}, optional, nil
 }
 
 func (c *FWFillSensorConfig) GetStartLevel() float64 {
@@ -90,6 +98,13 @@ func NewFWFillSensor(ctx context.Context, deps resource.Dependencies, name resou
 		}
 	}
 
+	if conf.Seakeeper != "" {
+		d.seakeeper, err = sensor.FromDependencies(deps, conf.Seakeeper)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	d.fwValve, err = toggleswitch.FromDependencies(deps, conf.FreshwaterValve)
 	if err != nil {
 		return nil, err
@@ -108,6 +123,7 @@ type FWFillSensorData struct {
 	fwTank     sensor.Sensor
 	fwSpotZero sensor.Sensor
 	fwValve    toggleswitch.Switch
+	seakeeper  sensor.Sensor
 }
 
 func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{}, error) {
@@ -145,12 +161,26 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 		"szState": szState,
 	}
 
+	seakeeperOn := false
+	if asd.seakeeper != nil {
+		res, err := asd.seakeeper.Readings(ctx, nil)
+		if err != nil {
+			asd.logger.Warnf("can't get data from seakeeper: %v", err)
+		} else {
+			seakeeperOn = res["power_enabled"] == 1
+			m["seakeeperOn"] = seakeeperOn
+		}
+	}
+
 	if szState == "Stopping" {
 		m["action"] = "close"
 	} else if level < asd.conf.GetStartLevel() {
 		m["action"] = "open"
 	} else if level >= asd.conf.GetEndLevel() {
 		m["action"] = "close"
+	} else if seakeeperOn && level < asd.conf.GetEndLevel() {
+		// if seakeeper is on, then let's really fill the tank as we're probably heading out
+		m["action"] = "open"
 	}
 
 	return m, nil

@@ -3,7 +3,6 @@ package verhboat
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/switch"
@@ -74,10 +73,9 @@ func NewFWFillSensor(ctx context.Context, deps resource.Dependencies, name resou
 	var err error
 
 	d := &FWFillSensorData{
-		name:            name,
-		logger:          logger,
-		conf:            conf,
-		lastRandomClose: time.Now(),
+		name:   name,
+		logger: logger,
+		conf:   conf,
 	}
 
 	d.fwTank, err = sensor.FromDependencies(deps, conf.FreshwaterTank)
@@ -110,8 +108,6 @@ type FWFillSensorData struct {
 	fwTank     sensor.Sensor
 	fwSpotZero sensor.Sensor
 	fwValve    toggleswitch.Switch
-
-	lastRandomClose time.Time
 }
 
 func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{}, error) {
@@ -147,17 +143,6 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 		"gallons": gallons,
 		"gpm":     gpm,
 		"szState": szState,
-		"random":  false,
-	}
-
-	if time.Since(asd.lastRandomClose) > (10 * time.Minute) {
-		m["random"] = true
-		err = asd.fwValve.SetPosition(ctx, 0, nil)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't do random valve close: %w", err)
-		}
-		time.Sleep(time.Second * 5)
-		asd.lastRandomClose = time.Now()
 	}
 
 	if szState == "Stopping" {

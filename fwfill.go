@@ -8,6 +8,8 @@ import (
 	"go.viam.com/rdk/components/switch"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+
+	"github.com/erh/vmodutils"
 )
 
 var FWFillSensorModel = NamespaceFamily.WithModel("fw-fill")
@@ -167,8 +169,12 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 		if err != nil {
 			asd.logger.Warnf("can't get data from seakeeper: %v", err)
 		} else {
-			seakeeperOn = res["power_enabled"] == 1
-			m["seakeeperOn"] = seakeeperOn
+			seakeeperOn, ok := vmodutils.GetIntFromMap(res, "power_enabled")
+			if !ok {
+				asd.logger.Warnf("no power_enabled? %v", res)
+			} else {
+				m["seakeeperOn"] = seakeeperOn == 1
+			}
 		}
 	}
 

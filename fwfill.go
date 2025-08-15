@@ -169,11 +169,12 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 		if err != nil {
 			asd.logger.Warnf("can't get data from seakeeper: %v", err)
 		} else {
-			seakeeperOn, ok := vmodutils.GetIntFromMap(res, "power_enabled")
+			seakeeperOnInt, ok := vmodutils.GetIntFromMap(res, "power_enabled")
 			if !ok {
 				asd.logger.Warnf("no power_enabled? %v", res)
 			} else {
-				m["seakeeperOn"] = seakeeperOn == 1
+				seakeeperOn := seakeeperOnInt == 1
+				m["seakeeperOn"] = seakeeperOn
 			}
 		}
 	}

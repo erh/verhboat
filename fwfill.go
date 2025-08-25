@@ -163,20 +163,12 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 		"szState": szState,
 	}
 
-	seakeeperOn := false
-	if asd.seakeeper != nil {
-		res, err := asd.seakeeper.Readings(ctx, nil)
-		if err != nil {
-			asd.logger.Warnf("can't get data from seakeeper: %v", err)
-		} else {
-			seakeeperOnInt, ok := vmodutils.GetIntFromMap(res, "power_enabled")
-			if !ok {
-				asd.logger.Warnf("no power_enabled? %v", res)
-			} else {
-				seakeeperOn := seakeeperOnInt == 1
-				m["seakeeperOn"] = seakeeperOn
-			}
-		}
+	seakeeperOn, seakeeperEnabled, err := asd.seakeeperCheck(ctx)
+	if err != nil {
+		asd.logger.Warnf("cannot get seakeeper data: %v", err)
+	} else {
+		m["seakeeperOn"] = seakeeperOn
+		m["seakeeperEnabled"] = seakeeperEnabled
 	}
 
 	if szState == "Stopping" {
@@ -185,12 +177,36 @@ func (asd *FWFillSensorData) getData(ctx context.Context) (map[string]interface{
 		m["action"] = "open"
 	} else if level >= asd.conf.GetEndLevel() {
 		m["action"] = "close"
-	} else if seakeeperOn && level < asd.conf.GetEndLevel() {
+	} else if seakeeperOn && !seakeeperEnabled && level < asd.conf.GetEndLevel() {
 		// if seakeeper is on, then let's really fill the tank as we're probably heading out
+		// but if it's enabled, we're probably at chelsea, and don't press
 		m["action"] = "open"
 	}
 
 	return m, nil
+}
+
+func (asd *FWFillSensorData) seakeeperCheck(ctx context.Context) (bool, bool, error) {
+	if asd.seakeeper == nil {
+		return false, false, nil
+	}
+
+	res, err := asd.seakeeper.Readings(ctx, nil)
+	if err != nil {
+		return false, false, err
+	}
+
+	seakeeperOnInt, ok := vmodutils.GetIntFromMap(res, "power_enabled")
+	if !ok {
+		return false, false, fmt.Errorf("wrong power_enabled %v", res)
+	}
+
+	stabilizeEnabledInt, ok := vmodutils.GetIntFromMap(res, "stabilize_enabled")
+	if !ok {
+		return false, false, fmt.Errorf("wrong stabilize_enabled %v", res)
+	}
+
+	return seakeeperOnInt == 1, stabilizeEnabledInt == 1, nil
 }
 
 func (asd *FWFillSensorData) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {

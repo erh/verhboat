@@ -14,7 +14,12 @@
       "api": "rdk:component:sensor",
       "model": "erh:verhboat:fw-fill",
       "markdown_link": "README.md#fw-fill"
+    },
+    {
+      "api": "rdk:component:switch",
+      "model": "erh:verhboat:tahoma-hack"
     }
+
   ],
   "applications": null,
   "markdown_link": "README.md",

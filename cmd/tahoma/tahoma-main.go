@@ -8,6 +8,8 @@ import (
 
 	"github.com/erh/vmodutils"
 
+	"go.viam.com/rdk/components/switch"
+
 	"verhboat"
 )
 
@@ -47,7 +49,7 @@ func realMain() error {
 		return err
 	}
 
-	client, err := verhboat.NewTahomaClient(cfg, logger)
+	client, err := verhboat.NewTahomaClient(cfg, toggleswitch.Named("foo"), logger)
 	if err != nil {
 		return err
 	}

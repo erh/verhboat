@@ -2,6 +2,7 @@ package verhboat
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -9,8 +10,23 @@ import (
 	"net/http"
 	"time"
 
+	"go.uber.org/multierr"
+
+	"go.viam.com/rdk/components/switch"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 )
+
+var TahomaHackModel = NamespaceFamily.WithModel("tahoma-hack")
+
+func init() {
+	resource.RegisterComponent(
+		toggleswitch.API,
+		TahomaHackModel,
+		resource.Registration[toggleswitch.Switch, *TahomaConfig]{
+			Constructor: newTahomaHack,
+		})
+}
 
 type TahomaConfig struct {
 	Host   string
@@ -30,10 +46,16 @@ func (tc *TahomaConfig) Validate(path string) ([]string, []string, error) {
 }
 
 type TahomaClient struct {
-	conf       *TahomaConfig
+	resource.AlwaysRebuild
+
+	name   resource.Name
+	conf   *TahomaConfig
+	logger logging.Logger
+
 	httpClient *http.Client
-	logger     logging.Logger
-	devices    map[string]Device
+
+	devices      map[string]Device
+	lastPosition uint32
 }
 
 // ------
@@ -65,8 +87,18 @@ type ExecutionResponse struct {
 
 // --- end api ---
 
-func NewTahomaClient(conf *TahomaConfig, logger logging.Logger) (*TahomaClient, error) {
+func newTahomaHack(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) (toggleswitch.Switch, error) {
+	conf, err := resource.NativeConfig[*TahomaConfig](rawConf)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewTahomaClient(conf, rawConf.ResourceName(), logger)
+}
+
+func NewTahomaClient(conf *TahomaConfig, name resource.Name, logger logging.Logger) (*TahomaClient, error) {
 	tc := &TahomaClient{
+		name: name,
 		conf: conf,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -229,4 +261,47 @@ func (c *TahomaClient) LowerAndTiltShadeByUrl(deviceURL string) error {
 	}
 
 	return nil
+}
+
+func (c *TahomaClient) Close(ctx context.Context) error {
+	c.httpClient.CloseIdleConnections()
+	return nil
+}
+
+func (c *TahomaClient) Name() resource.Name {
+	return c.name
+}
+
+func (c *TahomaClient) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
+func (c *TahomaClient) SetPosition(ctx context.Context, position uint32, extra map[string]interface{}) error {
+	// TODO - this is all hacked for now
+
+	switch position {
+	case 0:
+		c.lastPosition = 0
+		return nil
+	case 1:
+		return multierr.Combine(
+			c.LiftShadeByLabel("Port forward"),
+			c.LiftShadeByLabel("Port mid"),
+		)
+	case 2:
+		return multierr.Combine(
+			c.LowerAndTiltShadeByUrl("Port forward"),
+			c.LowerAndTiltShadeByUrl("Port mid"),
+		)
+	}
+
+	return fmt.Errorf("don't know how to go to position %d", position)
+}
+
+func (c *TahomaClient) GetPosition(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	return c.lastPosition, nil
+}
+
+func (c *TahomaClient) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+	return 3, []string{"unknown", "open", "port"}, nil
 }

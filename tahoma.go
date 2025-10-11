@@ -223,16 +223,30 @@ func (c *TahomaClient) LiftShadeByUrl(deviceURL string) error {
 	return err
 }
 
-func (c *TahomaClient) LowerAndTiltShadeByLabel(label string) error {
-	d, ok := c.devices[label]
-	if !ok {
-		return fmt.Errorf("no device called [%s]", label)
+func (c *TahomaClient) LowerAndTiltShadeByLabels(labels []string) error {
+	urls, err := c.labelsToUrls(labels)
+	if err != nil {
+		return err
 	}
-	return c.LowerAndTiltShadeByUrl(d.DeviceURL)
+	return c.LowerAndTiltShadeByUrls(urls)
 
 }
 
-func (c *TahomaClient) LowerAndTiltShadeByUrl(deviceURL string) error {
+func (c *TahomaClient) labelsToUrls(labels []string) ([]string, error) {
+	urls := []string{}
+
+	for _, l := range labels {
+		d, ok := c.devices[l]
+		if !ok {
+			return nil, fmt.Errorf("no device called [%s]", l)
+		}
+		urls = append(urls, d.DeviceURL)
+	}
+
+	return urls, nil
+}
+
+func (c *TahomaClient) LowerAndTiltShadeByUrls(urls []string) error {
 	commands := []Command{
 		{
 			Name:       "down",
@@ -240,13 +254,14 @@ func (c *TahomaClient) LowerAndTiltShadeByUrl(deviceURL string) error {
 		},
 	}
 
-	_, err := c.ExecuteCommands(deviceURL, commands, "Lower shade")
-	if err != nil {
-		return fmt.Errorf("failed to lower shade: %w", err)
+	for _, u := range urls {
+		_, err := c.ExecuteCommands(u, commands, "Lower shade")
+		if err != nil {
+			return fmt.Errorf("failed to lower shade (url: %s): %w", u, err)
+		}
 	}
 
-	// Wait for the shade to fully lower
-	time.Sleep(20 * time.Second)
+	time.Sleep(20 * time.Second) // Wait for the shade(s) to fully lower
 
 	tiltCommands := []Command{
 		{
@@ -255,9 +270,11 @@ func (c *TahomaClient) LowerAndTiltShadeByUrl(deviceURL string) error {
 		},
 	}
 
-	_, err = c.ExecuteCommands(deviceURL, tiltCommands, "Tilt shade up")
-	if err != nil {
-		return fmt.Errorf("failed to tilt shade: %w", err)
+	for _, u := range urls {
+		_, err := c.ExecuteCommands(u, tiltCommands, "Tilt shade up")
+		if err != nil {
+			return fmt.Errorf("failed to tilt shade (url: %s): %w", u, err)
+		}
 	}
 
 	return nil
@@ -281,18 +298,27 @@ func (c *TahomaClient) SetPosition(ctx context.Context, position uint32, extra m
 
 	switch position {
 	case 0:
-		c.lastPosition = 0
+		c.lastPosition = position
 		return nil
 	case 1:
-		return multierr.Combine(
+		err := multierr.Combine(
 			c.LiftShadeByLabel("Port forward"),
 			c.LiftShadeByLabel("Port mid"),
 		)
+		if err != nil {
+			c.lastPosition = 0
+			return err
+		}
+		c.lastPosition = position
+		return nil
 	case 2:
-		return multierr.Combine(
-			c.LowerAndTiltShadeByUrl("Port forward"),
-			c.LowerAndTiltShadeByUrl("Port mid"),
-		)
+		err := c.LowerAndTiltShadeByLabels([]string{"Port forward", "Port mid"})
+		if err != nil {
+			c.lastPosition = 0
+			return err
+		}
+		c.lastPosition = position
+		return nil
 	}
 
 	return fmt.Errorf("don't know how to go to position %d", position)

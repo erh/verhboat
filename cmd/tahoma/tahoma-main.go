@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 
 	"go.viam.com/rdk/logging"
 
@@ -73,7 +74,7 @@ func realMain() error {
 		if *label == "" {
 			return fmt.Errorf("need a label")
 		}
-		return client.LowerAndTiltShadeByLabel(*label)
+		return client.LowerAndTiltShadeByLabels(strings.Split(*label, ","))
 
 	default:
 		return fmt.Errorf("unknown action [%s]", *action)

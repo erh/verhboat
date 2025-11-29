@@ -34,6 +34,7 @@ all: test module.tar.gz
 
 setup:
 	go mod tidy
+	which npm > /dev/null 2>&1 || apt -y install nodejs
 
 web-cam/dist/index.html: web-cam/*.json web-cam/src/*.svelte
 	cd web-cam && NODE_ENV=development npm run build

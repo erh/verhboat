@@ -6,6 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/erh/vmodutils v0.2.8
+	go.uber.org/multierr v1.11.0
 	go.viam.com/rdk v0.87.1
 )
 
@@ -181,7 +182,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.uber.org/goleak v1.3.0 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.viam.com/api v0.1.455 // indirect
 	go.viam.com/test v1.2.4 // indirect

@@ -9,7 +9,7 @@ ifeq ($(VIAM_TARGET_OS), windows)
 	MODULE_BINARY = bin/verhboat.exe
 endif
 
-$(MODULE_BINARY): Makefile go.mod *.go cmd/module/*.go 
+$(MODULE_BINARY): Makefile go.mod *.go cmd/module/*.go web-cam/dist/index.html
 	$(GO_BUILD_ENV) go build $(GO_BUILD_FLAGS) -o $(MODULE_BINARY) cmd/module/main.go
 
 lint:
@@ -34,3 +34,6 @@ all: test module.tar.gz
 
 setup:
 	go mod tidy
+
+web-cam/dist/index.html: web-cam/*.json web-cam/src/*.svelte
+	cd web-cam && NODE_ENV=development npm run build

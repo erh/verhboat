@@ -18,7 +18,12 @@
     {
       "api": "rdk:component:switch",
       "model": "erh:verhboat:tahoma-hack"
+    },
+      {
+      "api": "rdk:component:generic",
+      "model": "erh:verhboat:www-cams"
     }
+
 
   ],
   "applications": null,

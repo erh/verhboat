@@ -10,6 +10,8 @@
  }
  let { children }: Props = $props();
 
+ const urlParams = new URLSearchParams(window.location.search);
+
  var host = urlParams.get("host");
  var apiKey = urlParams.get("api-key");
  var authEntity = urlParams.get("authEntity");

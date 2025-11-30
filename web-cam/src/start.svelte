@@ -1,4 +1,5 @@
 <script lang="ts">
+ import { getCookie } from 'typescript-cookie'
  import { ViamProvider } from '@viamrobotics/svelte-sdk';
  import type { DialConf } from '@viamrobotics/sdk';
  import Cams from "./cams.svelte";

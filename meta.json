@@ -34,7 +34,7 @@
     "build": "make module.tar.gz",
     "setup": "make setup",
     "path": "module.tar.gz",
-    "darwin_deps" : ["npm"],
+    "darwin_deps" : ["go", "npm"],
     "arch": [
       "linux/amd64",
       "linux/arm64",

@@ -8,16 +8,25 @@
    }
    return cameras;
  }
- 
+
  const partID = 'xxx';
  const connectionStatus = useConnectionStatus(() => partID);
  const isConnected = $derived(connectionStatus.current === MachineConnectionEvent.CONNECTED);
+
+ function toggleFullscreen() {
+   if (!document.fullscreenElement) {
+     document.documentElement.requestFullscreen();
+   } else {
+     document.exitFullscreen();
+   }
+ }
 </script>
 
 {#if !isConnected}
   <p>Connecting...</p>
 {/if}
 {#if isConnected}
+<button class="fullscreen-btn" onclick={toggleFullscreen}>Fullscreen</button>
 <table border="0">
   <tbody>
     <tr>
@@ -39,3 +48,21 @@
   </tbody>
 </table>
 {/if}
+
+<style>
+  .fullscreen-btn {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 8px 16px;
+    background: #333;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 1000;
+  }
+  .fullscreen-btn:hover {
+    background: #555;
+  }
+</style>

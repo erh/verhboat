@@ -5,7 +5,7 @@
  onMount(() => {
    const interval = setInterval(() => {
      location.reload();
-   }, 60 * 60 * 1000); // every hour
+   }, 7 * 24 * 60 * 60 * 1000); // every week
 
    return () => clearInterval(interval);
  });

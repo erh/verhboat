@@ -1,4 +1,4 @@
-module verhboat
+module github.com/erh/verhboat
 
 go 1.23.8
 

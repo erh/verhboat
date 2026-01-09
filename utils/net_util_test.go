@@ -1,4 +1,4 @@
-package verhboat
+package utils
 
 import (
 	"testing"

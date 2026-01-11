@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os/exec"
+	"strings"
 
 	"github.com/erh/vmodutils"
 
@@ -66,6 +67,20 @@ func PrepOnehelmServer(fs fs.FS, logger logging.Logger, cfg *OnehelmAppConfig) (
 		}
 		w.Write(data)
 	})
+
+	if strings.HasPrefix(cfg.IconPath, "http") {
+		imgData, mimeType, err := DownloadBytes(cfg.IconPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("can't download icon %w from: %s", err, cfg.IconPath)
+		}
+		cfg.IconPath = "/magicIcon"
+
+		mux.HandleFunc(cfg.IconPath, func(w http.ResponseWriter, r *http.Request) {
+			w.Header()["Content-Type"] = []string{mimeType}
+			w.Write(imgData)
+		})
+
+	}
 
 	return mux, func(ctx context.Context) Close {
 		ctx, cancel := context.WithCancel(ctx)

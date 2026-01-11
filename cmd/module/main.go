@@ -6,7 +6,8 @@ import (
 	"go.viam.com/rdk/components/switch"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
-	"verhboat"
+
+	"github.com/erh/verhboat"
 )
 
 func main() {

@@ -26,7 +26,6 @@
  }
 
  let cams = $state(initialCams);
- let filteringDone = $state(!filterOne);
 
  async function camGood(n) {
    // get the camera object
@@ -48,25 +47,24 @@
  }
 
  async function filterCams() {
-   let remaining = [...cams];
+   let remaining = [...initialCams];
    while (remaining.length > 1) {
      const good = await camGood(remaining[0]);
      if (good) {
        cams = [remaining[0]];
-       break;
+       return;
      }
      remaining = remaining.slice(1);
    }
-   if (remaining.length === 1) {
-     cams = remaining;
-   }
-   filteringDone = true;
+   cams = remaining;
  }
 
  $effect(() => {
-   if (isConnected && filterOne && !filteringDone) {
-     filterCams();
-   }
+   if (!isConnected || !filterOne) return;
+
+   filterCams();
+   const interval = setInterval(filterCams, 30000);
+   return () => clearInterval(interval);
  });
 
  // Calculate columns for a square-ish grid: ceil(sqrt(n))

@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
+	"os/signal"
 
 	"github.com/google/uuid"
 
@@ -53,7 +53,10 @@ func realMain() error {
 
 	closer := start(ctx)
 
-	time.Sleep(10 * time.Second)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+
 	closer(ctx)
 
 	return nil

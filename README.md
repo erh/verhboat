@@ -27,4 +27,4 @@ Provide a description of the purpose of the module and any relevant information.
 
 # To test onehelm app
 * create a directory with an index.html
-* go run cmd/onehelm/onehelm-cmd.go -dir <directory>
+* ```go run cmd/onehelm/onehelm-cmd.go -dir <directory>```

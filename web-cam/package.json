@@ -20,8 +20,8 @@
   },
   "dependencies": {
     "@tanstack/svelte-query": "^6.0.9",
-    "@viamrobotics/sdk": "^0.56.0",
-    "@viamrobotics/svelte-sdk": "^1.0.1",
+    "@viamrobotics/sdk": "^0.61.1",
+    "@viamrobotics/svelte-sdk": "^1.0.3",
     "typescript-cookie": "^1.0.6"
   }
 }

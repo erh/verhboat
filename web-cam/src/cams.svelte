@@ -43,6 +43,8 @@
    } catch (e) {
      console.log(`Camera ${n} error:`, e);
      return false;
+   } finally {
+     camera.close();
    }
  }
 

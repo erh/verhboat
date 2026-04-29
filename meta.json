@@ -16,6 +16,10 @@
       "markdown_link": "README.md#fw-fill"
     },
     {
+      "api": "rdk:component:sensor",
+      "model": "erh:verhboat:modbus-to-tank"
+    },
+    {
       "api": "rdk:component:switch",
       "model": "erh:verhboat:tahoma-hack"
     },

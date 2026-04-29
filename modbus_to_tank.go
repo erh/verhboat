@@ -89,9 +89,11 @@ func (m *ModbusToTankSensorData) Readings(ctx context.Context, extra map[string]
 		return nil, fmt.Errorf("modbus-sensor field %q is not a float64: %v (%)", m.conf.Field, rawAny, rawAny)
 	}
 
+	raw = (raw / 10) * 3.78541 // gallons to liters
+
 	return map[string]interface{}{
 		"raw":      raw,
-		"Capacity": m.conf.Capacity,
+		"Capacity": m.conf.Capacity * 3.78541, // gallons to litetrs
 		"Type":     m.conf.Type,
 		"Level":    (raw / 10) / m.conf.Capacity * 100,
 	}, nil

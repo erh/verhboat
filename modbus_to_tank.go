@@ -90,14 +90,15 @@ func (m *ModbusToTankSensorData) Readings(ctx context.Context, extra map[string]
 	}
 
 	const gallonsToLiters = 3.78541
-	raw = (raw / 10) * gallonsToLiters
+	liters := (raw / 10) * gallonsToLiters
 	cap := m.conf.Capacity * gallonsToLiters
 
 	return map[string]interface{}{
 		"raw":      raw,
 		"Capacity": cap,
 		"Type":     m.conf.Type,
-		"Level":    (raw / cap) * 100,
+		"Level":    (liters / cap) * 100,
+		"Liters":   liters,
 	}, nil
 }
 

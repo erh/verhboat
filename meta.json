@@ -20,6 +20,10 @@
       "model": "erh:verhboat:modbus-to-tank"
     },
     {
+      "api": "rdk:component:sensor",
+      "model": "erh:verhboat:combined-tank"
+    },
+    {
       "api": "rdk:component:switch",
       "model": "erh:verhboat:tahoma-hack"
     },

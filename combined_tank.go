@@ -85,7 +85,11 @@ func (m *CombinedTankSensorData) Readings(ctx context.Context, extra map[string]
 		}
 		liters, ok := res["Liters"].(float64)
 		if !ok {
-			return nil, fmt.Errorf("tank %q has no float64 \"Liters\": %v", m.conf.Tanks[i], res["Liters"])
+			level, levelOk := res["Level"].(float64)
+			if !levelOk {
+				return nil, fmt.Errorf("tank %q has no float64 \"Liters\" or \"Level\": %v %v", m.conf.Tanks[i], res["Liters"], res["Level"])
+			}
+			liters = (level / 100) * capacity
 		}
 		typ, ok := res["Type"].(string)
 		if !ok {

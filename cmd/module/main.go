@@ -15,6 +15,7 @@ func main() {
 		resource.APIModel{sensor.API, verhboat.AlertsSensorModel},
 		resource.APIModel{sensor.API, verhboat.FWFillSensorModel},
 		resource.APIModel{sensor.API, verhboat.ModbusToTankSensorModel},
+		resource.APIModel{sensor.API, verhboat.CombinedTankSensorModel},
 		resource.APIModel{toggleswitch.API, verhboat.TahomaHackModel},
 		resource.APIModel{generic.API, verhboat.WebCamModel},
 	)

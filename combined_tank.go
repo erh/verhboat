@@ -70,7 +70,7 @@ type CombinedTankSensorData struct {
 }
 
 func (m *CombinedTankSensorData) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	var totalRaw, totalCapacity, totalLiters float64
+	var totalCapacity, totalLiters float64
 	var tankType string
 
 	for i, t := range m.tanks {
@@ -79,10 +79,6 @@ func (m *CombinedTankSensorData) Readings(ctx context.Context, extra map[string]
 			return nil, fmt.Errorf("can't read from tank %q: %w", m.conf.Tanks[i], err)
 		}
 
-		raw, ok := res["raw"].(float64)
-		if !ok {
-			return nil, fmt.Errorf("tank %q has no float64 \"raw\": %v", m.conf.Tanks[i], res["raw"])
-		}
 		capacity, ok := res["Capacity"].(float64)
 		if !ok {
 			return nil, fmt.Errorf("tank %q has no float64 \"Capacity\": %v", m.conf.Tanks[i], res["Capacity"])
@@ -102,7 +98,6 @@ func (m *CombinedTankSensorData) Readings(ctx context.Context, extra map[string]
 			return nil, fmt.Errorf("tank %q has type %q but expected %q", m.conf.Tanks[i], typ, tankType)
 		}
 
-		totalRaw += raw
 		totalCapacity += capacity
 		totalLiters += liters
 	}
@@ -113,7 +108,6 @@ func (m *CombinedTankSensorData) Readings(ctx context.Context, extra map[string]
 	}
 
 	return map[string]interface{}{
-		"raw":      totalRaw,
 		"Capacity": totalCapacity,
 		"Type":     tankType,
 		"Level":    level,

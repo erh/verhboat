@@ -21,7 +21,8 @@
     },
     {
       "api": "rdk:component:sensor",
-      "model": "erh:verhboat:combined-tank"
+      "model": "erh:verhboat:combined-tank",
+      "markdown_link": "README.md#combined-tank"
     },
     {
       "api": "rdk:component:switch",

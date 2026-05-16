@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +22,7 @@ const (
 	m4315DefaultTCPPort = 23
 	m4315DialTimeout    = 5 * time.Second
 	m4315IOTimeout      = 5 * time.Second
+	m4315SyncInterval   = 5 * time.Minute
 )
 
 func init() {
@@ -57,6 +60,9 @@ type M4315Pro struct {
 
 	mu           sync.Mutex
 	lastPosition uint32
+
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func newM4315Pro(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) (toggleswitch.Switch, error) {
@@ -64,11 +70,26 @@ func newM4315Pro(ctx context.Context, deps resource.Dependencies, rawConf resour
 	if err != nil {
 		return nil, err
 	}
-	return &M4315Pro{
+
+	bgCtx, cancel := context.WithCancel(context.Background())
+	s := &M4315Pro{
 		name:   rawConf.ResourceName(),
 		conf:   conf,
 		logger: logger,
-	}, nil
+		cancel: cancel,
+	}
+
+	if err := s.syncFromDevice(ctx); err != nil {
+		// Don't fail startup; the device may be temporarily unreachable.
+		// The background poller will retry every m4315SyncInterval.
+		logger.Warnf("m4315-pro %s outlet %d: initial status query failed: %v",
+			conf.Host, conf.Outlet, err)
+	}
+
+	s.wg.Add(1)
+	go s.syncLoop(bgCtx)
+
+	return s, nil
 }
 
 func (s *M4315Pro) tcpPort() int {
@@ -78,46 +99,144 @@ func (s *M4315Pro) tcpPort() int {
 	return s.conf.TCPPort
 }
 
-// sendSwitch opens a fresh telnet connection, optionally logs in, and sends
-// one !SWITCH command for the configured outlet.
-func (s *M4315Pro) sendSwitch(state string) error {
-	addr := net.JoinHostPort(s.conf.Host, fmt.Sprintf("%d", s.tcpPort()))
+// dialAndAuth opens a fresh telnet connection and, if a password is configured,
+// logs in. The returned bufio.Reader is positioned past the login prompt.
+func (s *M4315Pro) dialAndAuth() (net.Conn, *bufio.Reader, error) {
+	addr := net.JoinHostPort(s.conf.Host, strconv.Itoa(s.tcpPort()))
 	conn, err := net.DialTimeout("tcp", addr, m4315DialTimeout)
 	if err != nil {
-		return fmt.Errorf("dial %s: %w", addr, err)
+		return nil, nil, fmt.Errorf("dial %s: %w", addr, err)
 	}
-	defer conn.Close()
-
-	deadline := time.Now().Add(m4315IOTimeout)
-	_ = conn.SetDeadline(deadline)
+	_ = conn.SetDeadline(time.Now().Add(m4315IOTimeout))
 
 	reader := bufio.NewReader(conn)
 
 	if s.conf.Password != "" {
-		// The BlueBOLT-CV1 card prompts for the password before accepting
-		// commands. Read until we see a prompt that looks like one, then
-		// send the password.
 		if err := readUntilPrompt(reader, "password"); err != nil {
-			return fmt.Errorf("waiting for password prompt: %w", err)
+			conn.Close()
+			return nil, nil, fmt.Errorf("waiting for password prompt: %w", err)
 		}
 		if _, err := conn.Write([]byte(s.conf.Password + "\r")); err != nil {
-			return fmt.Errorf("sending password: %w", err)
+			conn.Close()
+			return nil, nil, fmt.Errorf("sending password: %w", err)
 		}
 		if err := readUntilPrompt(reader, ">"); err != nil {
-			return fmt.Errorf("waiting for command prompt: %w", err)
+			conn.Close()
+			return nil, nil, fmt.Errorf("waiting for command prompt: %w", err)
 		}
 	}
+
+	return conn, reader, nil
+}
+
+// sendSwitch sends one !SWITCH command for the configured outlet.
+func (s *M4315Pro) sendSwitch(state string) error {
+	conn, _, err := s.dialAndAuth()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
 
 	cmd := fmt.Sprintf("!SWITCH %d %s\r", s.conf.Outlet, state)
 	s.logger.Debugf("m4315-pro %s outlet %d -> %s", s.conf.Host, s.conf.Outlet, state)
 	if _, err := conn.Write([]byte(cmd)); err != nil {
 		return fmt.Errorf("sending command: %w", err)
 	}
-
 	return nil
 }
 
-// readUntilPrompt reads from r until the accumulated input ends with substr
+// outletStatusRE matches one outlet line in a ?OUTLETSTAT response, e.g.
+// "$OUTLET1 ON", "$OUTLET1=ON", "$OUTLET1 = OFF".
+var outletStatusRE = regexp.MustCompile(`(?i)\$OUTLET\s*(\d+)\s*[=: ]\s*(ON|OFF)`)
+
+// queryStatus sends ?OUTLETSTAT and returns the on/off state of the configured
+// outlet (true = on).
+func (s *M4315Pro) queryStatus() (bool, error) {
+	conn, reader, err := s.dialAndAuth()
+	if err != nil {
+		return false, err
+	}
+	defer conn.Close()
+
+	if _, err := conn.Write([]byte("?OUTLETSTAT\r")); err != nil {
+		return false, fmt.Errorf("sending query: %w", err)
+	}
+
+	// Read until we've seen our outlet's status or the deadline fires. The
+	// device emits one $OUTLETn line per outlet; we don't know exactly how
+	// many lines it will send, so we read until the deadline ends the
+	// connection and parse what we got.
+	var buf strings.Builder
+	tmp := make([]byte, 256)
+	for {
+		n, err := reader.Read(tmp)
+		if n > 0 {
+			buf.Write(tmp[:n])
+			// Fast-path: if we've already seen our outlet, stop reading.
+			if state, ok := parseOutletStatus(buf.String(), s.conf.Outlet); ok {
+				return state, nil
+			}
+		}
+		if err != nil {
+			// Connection closed or deadline hit; try a final parse.
+			if state, ok := parseOutletStatus(buf.String(), s.conf.Outlet); ok {
+				return state, nil
+			}
+			return false, fmt.Errorf("reading status: %w (got %q)", err, buf.String())
+		}
+	}
+}
+
+// parseOutletStatus scans device output for the configured outlet's state.
+func parseOutletStatus(text string, outlet int) (bool, bool) {
+	for _, m := range outletStatusRE.FindAllStringSubmatch(text, -1) {
+		n, err := strconv.Atoi(m[1])
+		if err != nil || n != outlet {
+			continue
+		}
+		return strings.EqualFold(m[2], "ON"), true
+	}
+	return false, false
+}
+
+// syncFromDevice queries the device and updates the cached position.
+func (s *M4315Pro) syncFromDevice(ctx context.Context) error {
+	on, err := s.queryStatus()
+	if err != nil {
+		return err
+	}
+	var pos uint32
+	if on {
+		pos = 1
+	}
+	s.mu.Lock()
+	if s.lastPosition != pos {
+		s.logger.Infof("m4315-pro %s outlet %d: syncing cached state %d -> %d",
+			s.conf.Host, s.conf.Outlet, s.lastPosition, pos)
+	}
+	s.lastPosition = pos
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *M4315Pro) syncLoop(ctx context.Context) {
+	defer s.wg.Done()
+	t := time.NewTicker(m4315SyncInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := s.syncFromDevice(ctx); err != nil {
+				s.logger.Warnf("m4315-pro %s outlet %d: status sync failed: %v",
+					s.conf.Host, s.conf.Outlet, err)
+			}
+		}
+	}
+}
+
+// readUntilPrompt reads from r until the accumulated input contains substr
 // (case-insensitive), or the connection deadline fires.
 func readUntilPrompt(r *bufio.Reader, substr string) error {
 	want := strings.ToLower(substr)
@@ -139,6 +258,8 @@ func (s *M4315Pro) Name() resource.Name {
 }
 
 func (s *M4315Pro) Close(ctx context.Context) error {
+	s.cancel()
+	s.wg.Wait()
 	return nil
 }
 

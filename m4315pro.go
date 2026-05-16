@@ -80,9 +80,8 @@ func newM4315Pro(ctx context.Context, deps resource.Dependencies, rawConf resour
 	}
 
 	if err := s.syncFromDevice(ctx); err != nil {
-		// Don't fail startup; the device may be temporarily unreachable.
-		// The background poller will retry every m4315SyncInterval.
-		logger.Warnf("m4315-pro %s outlet %d: initial status query failed: %v",
+		cancel()
+		return nil, fmt.Errorf("m4315-pro %s outlet %d: initial status query failed: %w",
 			conf.Host, conf.Outlet, err)
 	}
 

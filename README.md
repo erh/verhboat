@@ -55,21 +55,57 @@ Toggle switch for one outlet on a Panamax/Furman M4315-PRO power
 conditioner. Each instance controls a single outlet over the device's
 local telnet interface (`!SWITCH <outlet> <ON|OFF>`).
 
+On startup and every 5 minutes, the component sends `?OUTLETSTAT` and
+parses the device's response (e.g. `$OUTLET1 = ON`) to keep the cached
+position in sync with reality — so toggles from the front panel or
+BlueBOLT eventually show up via `GetPosition`.
+
+Config:
+
 ```json
 {
     "host": "192.168.1.50",
     "outlet": 1,
     "tcp-port": 23,
-    "password": "..."
+    "password": "secret"
 }
 ```
 
 - `host` — IP or hostname of the M4315-PRO (required)
 - `outlet` — outlet number, 1-8 (required)
-- `tcp-port` — telnet port (optional, default 23)
+- `tcp-port` — telnet port (optional, default `23`)
 - `password` — BlueBOLT-CV1 password (optional; omit if telnet auth is off)
 
 Position `0` is off, `1` is on.
+
+Full Viam component config example — one instance per outlet you want
+to control:
+
+```json
+{
+    "components": [
+        {
+            "name": "amp_outlet",
+            "api": "rdk:component:switch",
+            "model": "erh:verhboat:m4315-pro",
+            "attributes": {
+                "host": "192.168.1.50",
+                "outlet": 1
+            }
+        },
+        {
+            "name": "subwoofer_outlet",
+            "api": "rdk:component:switch",
+            "model": "erh:verhboat:m4315-pro",
+            "attributes": {
+                "host": "192.168.1.50",
+                "outlet": 2,
+                "password": "secret"
+            }
+        }
+    ]
+}
+```
 
 # To test onehelm app
 * create a directory with an index.html

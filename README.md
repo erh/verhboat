@@ -49,6 +49,28 @@ Readings:
 - `Level` — combined fill percentage (0 if total capacity is 0)
 - `Type` — the shared tank type
 
+## m4315-pro
+
+Toggle switch for one outlet on a Panamax/Furman M4315-PRO power
+conditioner. Each instance controls a single outlet over the device's
+local telnet interface (`!SWITCH <outlet> <ON|OFF>`).
+
+```json
+{
+    "host": "192.168.1.50",
+    "outlet": 1,
+    "tcp-port": 23,
+    "password": "..."
+}
+```
+
+- `host` — IP or hostname of the M4315-PRO (required)
+- `outlet` — outlet number, 1-8 (required)
+- `tcp-port` — telnet port (optional, default 23)
+- `password` — BlueBOLT-CV1 password (optional; omit if telnet auth is off)
+
+Position `0` is off, `1` is on.
+
 # To test onehelm app
 * create a directory with an index.html
 * ```go run cmd/onehelm/onehelm-cmd.go -dir <directory>```

@@ -28,6 +28,11 @@
       "api": "rdk:component:switch",
       "model": "erh:verhboat:tahoma-hack"
     },
+    {
+      "api": "rdk:component:switch",
+      "model": "erh:verhboat:m4315-pro",
+      "markdown_link": "README.md#m4315-pro"
+    },
       {
       "api": "rdk:component:generic",
       "model": "erh:verhboat:www-cams"

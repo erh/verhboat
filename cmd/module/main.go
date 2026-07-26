@@ -19,5 +19,6 @@ func main() {
 		resource.APIModel{toggleswitch.API, verhboat.TahomaHackModel},
 		resource.APIModel{toggleswitch.API, verhboat.M4315ProModel},
 		resource.APIModel{generic.API, verhboat.WebCamModel},
+		resource.APIModel{generic.API, verhboat.NicolaudieStick3Model},
 	)
 }

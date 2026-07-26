@@ -36,9 +36,12 @@
       {
       "api": "rdk:component:generic",
       "model": "erh:verhboat:www-cams"
+    },
+    {
+      "api": "rdk:component:generic",
+      "model": "erh:verhboat:nicolaudie-stick3",
+      "markdown_link": "README.md#nicolaudie-stick3"
     }
-
-
   ],
   "applications": null,
   "markdown_link": "README.md",
